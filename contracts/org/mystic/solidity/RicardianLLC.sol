@@ -22,7 +22,7 @@ DEAR MSG.SENDER(S):
 pragma solidity 0.5.17;
 
 contract RicardianLLC { // based on GAMMA nft - 0xeF0ff94B152C00ED4620b149eE934f2F4A526387
-    address public ricardianLLCdao;
+    address payable public ricardianLLCdao;
     uint256 public mintFee;
     uint256 public totalSupply;
     uint256 public constant totalSupplyCap = uint256(-1);
@@ -47,7 +47,7 @@ contract RicardianLLC { // based on GAMMA nft - 0xeF0ff94B152C00ED4620b149eE934f
     event UpdateMasterOperatingAgreement(uint256 indexed version, string indexed masterOperatingAgreement);
     event UpdateMintFee(uint256 indexed mintFee);
     event UpdateMintStatus(bool indexed mintOpen);
-    event UpdateRicardianLLCdao(address indexed ricardianLLCdao, string indexed details);
+    event UpdateRicardianLLCdao(address indexed ricardianLLCdao);
 
     constructor (string memory _masterOperatingAgreement) public {
         ricardianLLCdao = msg.sender;
@@ -136,8 +136,8 @@ contract RicardianLLC { // based on GAMMA nft - 0xeF0ff94B152C00ED4620b149eE934f
         emit UpdateMintStatus(mintOpen);
     }
 
-    function updateRicardianLLCdao(address payable _ricardianLLCdao, string calldata details) external onlyRicardianLLCdao {
+    function updateRicardianLLCdao(address payable _ricardianLLCdao) external onlyRicardianLLCdao {
         ricardianLLCdao = _ricardianLLCdao;
-        emit UpdateRicardianLLCdao(ricardianLLCdao, details);
+        emit UpdateRicardianLLCdao(ricardianLLCdao);
     }
 }
