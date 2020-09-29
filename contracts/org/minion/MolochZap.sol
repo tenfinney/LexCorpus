@@ -1,82 +1,14 @@
 pragma solidity 0.5.17;
 
-/**
- * @dev Interface of the ERC20 standard as defined in the EIP.
- */
-interface IERC20 {
-    /**
-     * @dev Returns the amount of tokens in existence.
-     */
-    function totalSupply() external view returns (uint256);
-
-    /**
-     * @dev Returns the amount of tokens owned by `account`.
-     */
-    function balanceOf(address account) external view returns (uint256);
-
-    /**
-     * @dev Moves `amount` tokens from the caller's account to `recipient`.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
+interface IERC20 { // brief interface for erc20 token tx
+    function approve(address spender, uint256 amount) external returns (bool);
+    
     function transfer(address recipient, uint256 amount) external returns (bool);
 
-    /**
-     * @dev Returns the remaining number of tokens that `spender` will be
-     * allowed to spend on behalf of `owner` through {transferFrom}. This is
-     * zero by default.
-     *
-     * This value changes when {approve} or {transferFrom} are called.
-     */
-    function allowance(address owner, address spender) external view returns (uint256);
-
-    /**
-     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * IMPORTANT: Beware that changing an allowance with this method brings the risk
-     * that someone may use both the old and the new allowance by unfortunate
-     * transaction ordering. One possible solution to mitigate this race
-     * condition is to first reduce the spender's allowance to 0 and set the
-     * desired value afterwards:
-     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-     *
-     * Emits an {Approval} event.
-     */
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Moves `amount` tokens from `sender` to `recipient` using the
-     * allowance mechanism. `amount` is then deducted from the caller's
-     * allowance.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Emitted when `value` tokens are moved from one account (`from`) to
-     * another (`to`).
-     *
-     * Note that `value` may be zero.
-     */
-    event Transfer(address indexed from, address indexed to, uint256 value);
-
-    /**
-     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
-     * a call to {approve}. `value` is the new allowance.
-     */
-    event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
-interface IMoloch { // brief interface for txs to Moloch DAO
-    function cancelProposal(uint256 proposalId) external;
-    
+interface IMoloch { // brief interface for Moloch DAO tx
     function getProposalFlags(uint256 proposalId) external view returns (bool[6] memory);
 
     function submitProposal(
@@ -96,24 +28,10 @@ interface IMoloch { // brief interface for txs to Moloch DAO
 interface IWETH { // brief interface for canonical ether token wrapper 
     function deposit() payable external;
     
-    function transfer(address dst, uint wad) external returns (bool);
+    function transferFrom(address src, address dst, uint wad) external returns (bool);
 }
 
-library SafeMath { // arithmetic wrapper for unit under/overflow check
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a);
-
-        return c;
-    }
-    
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        require(b <= a);
-        uint256 c = a - b;
-
-        return c;
-    }
-    
+library SafeMathMultiply { // brief arithmetic wrapper for unit under/overflow check
     function mul(uint256 a, uint256 b) internal pure returns (uint256) {
         if (a == 0) {
             return 0;
@@ -121,13 +39,6 @@ library SafeMath { // arithmetic wrapper for unit under/overflow check
 
         uint256 c = a * b;
         require(c / a == b);
-
-        return c;
-    }
-
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        require(b > 0);
-        uint256 c = a / b;
 
         return c;
     }
@@ -219,21 +130,21 @@ contract Ownable is Context {
 }
 
 contract MolochZap is Ownable {
-    using SafeMath for uint256;
+    using SafeMathMultiply for uint256;
     address public moloch;
-    address public constant wETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // canonical ether token wrapper contract reference for proposals
-    uint256 public zapCount;
+    address public constant wETH = 0xc778417E063141139Fce010982780140Aa0cD5Ab; // canonical ether token wrapper contract reference for proposals
     uint256 public zapRate;
 
     mapping (uint256 => Zap) public zaps; // proposalId => Zap
     
     struct Zap {
         address proposer;
+        uint256 proposalId;
         uint256 zapAmount;
     }
 
-    event ProposeZap(address proposer, uint256 zapCount);
-    event WithdrawZap(address proposer, uint256 molochProposalId, uint256 zapCount);
+    event ProposeZap(address proposer, uint256 proposalId);
+    event WithdrawZap(address proposer, uint256 proposalId);
 
     constructor(address _moloch, uint256 _zapRate) public {
         moloch = _moloch;
@@ -244,14 +155,13 @@ contract MolochZap is Ownable {
     function() payable external {
         uint256 sharesRequested = msg.value.mul(zapRate); 
         
+        // wrap ETH into wETH
         IWETH(wETH).deposit();
         (bool success, ) = wETH.call.value(msg.value)("");
         require(success, "!transfer");
-        IWETH(wETH).transfer(address(this), msg.value);
+        IWETH(wETH).transferFrom(_msgSender(), address(this), msg.value);
         
-        zapCount = zapCount + 1;
-
-        IMoloch(moloch).submitProposal(
+        uint256 proposalId = IMoloch(moloch).submitProposal(
             _msgSender(),
             sharesRequested,
             0,
@@ -262,28 +172,29 @@ contract MolochZap is Ownable {
             "MOLOCH_ZAP"
         );
         
-        zaps[zapCount] = Zap(
+        zaps[proposalId] = Zap(
             _msgSender(),
+            proposalId,
             msg.value);
-
-        emit ProposeZap(_msgSender(), zapCount);
+        
+        emit ProposeZap(_msgSender(), proposalId);
     }
     
     function updateZapRate(uint256 _zapRate) external onlyOwner {
         zapRate = _zapRate;
     }
     
-    function withdrawZap(uint256 molochProposalId, uint256 _zapCount) external { // if zap proposal fails, withdraw back to proposer
-        Zap storage zap = zaps[_zapCount];
+    function withdrawZap(uint256 proposalId) external { // if zap proposal fails, withdraw back to proposer
+        Zap storage zap = zaps[proposalId];
         
         require(msg.sender == zap.proposer, "!proposer");
         
-        bool[6] memory flags = IMoloch(moloch).getProposalFlags(molochProposalId);
-        require(flags[2] == false, "MolochZap::proposal passed");
+        bool[6] memory flags = IMoloch(moloch).getProposalFlags(proposalId);
+        require(!flags[2], "MolochZap::proposal passed");
         
         IMoloch(moloch).withdrawBalance(wETH, zap.zapAmount); // withdraw funds from parent Moloch
         IERC20(wETH).transfer(zap.proposer, zap.zapAmount); // redirect funds to zap proposer
         
-        emit WithdrawZap(msg.sender, molochProposalId, zapCount);
+        emit WithdrawZap(msg.sender, proposalId);
     }
 }
