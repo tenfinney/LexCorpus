@@ -31,7 +31,7 @@ interface IWETH { // brief interface for canonical ether token wrapper
     function transferFrom(address src, address dst, uint wad) external returns (bool);
 }
 
-library SafeMathMultiply { // brief arithmetic wrapper for unit under/overflow check
+library SafeMathMul { // brief arithmetic wrapper for multiply under/overflow check
     function mul(uint256 a, uint256 b) internal pure returns (uint256) {
         if (a == 0) {
             return 0;
@@ -130,7 +130,7 @@ contract Ownable is Context {
 }
 
 contract MolochZap is Ownable {
-    using SafeMathMultiply for uint256;
+    using SafeMathMul for uint256;
     address public moloch;
     address public constant wETH = 0xc778417E063141139Fce010982780140Aa0cD5Ab; // canonical ether token wrapper contract reference for proposals
     uint256 public zapRate;
