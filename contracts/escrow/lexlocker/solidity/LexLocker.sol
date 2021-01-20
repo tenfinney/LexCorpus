@@ -20,7 +20,7 @@ DEAR MSG.SENDER(S):
 ~presented by LexDAO LLC \+|+/ 
 */
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.7.5;
+pragma solidity 0.8.0;
 
 interface IERC20 { // brief interface for erc20 token
     function balanceOf(address account) external view returns (uint256);
@@ -58,26 +58,6 @@ library SafeERC20 { // wrapper around erc20 token tx for non-standard contract -
     }
 }
 
-library SafeMath { // arithmetic wrapper for under/overflow check
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a);
-        return c;
-    }
-    
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        require(b <= a);
-        uint256 c = a - b;
-        return c;
-    }
-    
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        require(b > 0);
-        uint256 c = a / b;
-        return c;
-    }
-}
-
 contract ReentrancyGuard { // call wrapper for reentrancy check - see https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/ReentrancyGuard.sol
     uint256 private constant _NOT_ENTERED = 1;
     uint256 private constant _ENTERED = 2;
@@ -102,13 +82,11 @@ contract ReentrancyGuard { // call wrapper for reentrancy check - see https://gi
  */
 contract LexLocker is ReentrancyGuard { 
     using SafeERC20 for IERC20;
-    using SafeMath for uint256;
 
     /*$<⚖️️> LXL <⚔️>$*/
     address public manager; // account managing LXL settings - see 'Manager Functions' - updateable by manager
     address public swiftResolverToken; // token required to participate as swift resolver - updateable by manager
     address public userRewardToken; // token for LXL user rewards - updateable by manager
-    address public wETH; // ether token wrapper contract reference - updateable by manager
     uint256 public lockerCount; // lockers counted into LXL registry
     uint256 public resolutionRate; // rate to determine resolution fee for disputed locker (e.g., 20 = 5% of remainder) - updateable by manager
     uint256 public swiftResolverTokenBalance; // balance required in `swiftResolverToken` to participate as swift resolver - updateable by manager
@@ -136,7 +114,7 @@ contract LexLocker is ReentrancyGuard {
     event Resolve(address indexed resolver, uint256 clientAward, uint256 providerAward, uint256 registration, uint256 resolutionFee, string resolution); 
     event AddMarketTerms(uint256 index, string terms);
     event AmendMarketTerms(uint256 index, string terms);
-    event UpdateLockerSettings(address indexed manager, address swiftResolverToken, address userRewardToken, address wETH, uint256 resolutionRate, uint256 swiftResolverTokenBalance, uint256 userReward, string lockerTerms);
+    event UpdateLockerSettings(address indexed manager, address swiftResolverToken, address userRewardToken, uint256 resolutionRate, uint256 swiftResolverTokenBalance, uint256 userReward, string lockerTerms);
     event TributeToManager(address indexed caller, uint256 amount, string details);
 
     struct ADR {  
@@ -171,7 +149,6 @@ contract LexLocker is ReentrancyGuard {
         address _manager, 
         address _swiftResolverToken,
         address _userRewardToken,
-        address _wETH,
         uint256 _resolutionRate, 
         uint256 _swiftResolverTokenBalance, 
         uint256 _userReward,
@@ -182,7 +159,6 @@ contract LexLocker is ReentrancyGuard {
         manager = _manager;
         swiftResolverToken = _swiftResolverToken;
         userRewardToken = _userRewardToken;
-        wETH = _wETH;
         resolutionRate = _resolutionRate;
         swiftResolverTokenBalance = _swiftResolverTokenBalance;
         userReward = _userReward;
@@ -197,7 +173,6 @@ contract LexLocker is ReentrancyGuard {
     // ************
     /**
      * @notice LXL can be registered as deposit from `client` for benefit of `provider`.
-     * @dev If LXL `token` is wETH, msg.value can be wrapped into wETH in single call.
      * @param clientOracle Account that can help call `release()` and `withdraw()` (default to `client` if unsure).
      * @param provider Account to receive registered `amount`s.
      * @param resolver Account that can call `resolve()` to award `sum` remainder between LXL parties.
@@ -223,17 +198,14 @@ contract LexLocker is ReentrancyGuard {
         for (uint256 i = 0; i < amount.length; i++) {
             sum = sum.add(amount[i]);
         }
-
-        if (msg.value > 0) {
-            address weth = wETH;
-            require(token == weth && msg.value == sum, "!ethBalance");
-            (bool success, ) = weth.call{value: msg.value}("");
-            require(success, "!ethCall");
-            IERC20(weth).transfer(address(this), msg.value);
+	
+	if (token == address(0)) {
+            (bool success, ) = address(this).call{value: sum}("");
+            require(success, "!sum");
         } else {
             IERC20(token).safeTransferFrom(msg.sender, address(this), sum);
         }
-        
+
         lockerCount++;
         uint256 registration = lockerCount;
         
@@ -275,7 +247,6 @@ contract LexLocker is ReentrancyGuard {
     
     /**
      * @notice LXL can be registered as single deposit (lump sum) from `client` for benefit of `provider`.
-     * @dev If LXL `token` is wETH, msg.value can be wrapped into wETH in single call.
      * @param clientOracle Account that can help call `release()` and `withdraw()` (default to `client` if unsure).
      * @param provider Account to receive registered `amount`s.
      * @param resolver Account that can call `resolve()` to award `sum` remainder between LXL parties.
@@ -297,12 +268,9 @@ contract LexLocker is ReentrancyGuard {
     ) external nonReentrant payable returns (uint256) {
         require(msg.sender != resolver && clientOracle != resolver && provider != resolver, "client/clientOracle/provider = resolver");
         
-        if (msg.value > 0) {
-            address weth = wETH;
-            require(token == weth && msg.value == sum, "!ethBalance");
-            (bool success, ) = weth.call{value: msg.value}("");
-            require(success, "!ethCall");
-            IERC20(weth).transfer(address(this), msg.value);
+        if (token == address(0)) {
+            (bool success, ) = address(this).call{value: sum}("");
+            require(success, "!sum");
         } else {
             IERC20(token).safeTransferFrom(msg.sender, address(this), sum);
         }
@@ -420,7 +388,6 @@ contract LexLocker is ReentrancyGuard {
     
     /**
      * @notice LXL `client` can confirm after `registerLocker()` is called to deposit `sum` for `provider`.
-     * @dev If LXL `token` is wETH, msg.value can be wrapped into wETH in single call.
      * @param registration Registered LXL number.
      */
     function confirmLocker(uint256 registration) external nonReentrant payable { // PROVIDER-TRACK
@@ -429,14 +396,11 @@ contract LexLocker is ReentrancyGuard {
         require(msg.sender == locker.client, "!client");
         require(locker.confirmed == 0, "confirmed");
         
-        if (msg.value > 0) {
-            address weth = wETH;
-            require(locker.token == weth && msg.value == locker.sum, "!ethBalance");
-            (bool success, ) = weth.call{value: msg.value}("");
-            require(success, "!ethCall");
-            IERC20(weth).transfer(address(this), msg.value);
+        if (locker.token == address(0)) {
+            (bool success, ) = address(this).call{value: locker.sum}("");
+            require(success, "!sum");
         } else {
-            IERC20(locker.token).safeTransferFrom(msg.sender, address(this), locker.sum);
+            IERC20(token).safeTransferFrom(msg.sender, address(this), locker.sum);
         }
         
         locker.confirmed = 1;
@@ -446,7 +410,6 @@ contract LexLocker is ReentrancyGuard {
     
     /**
      * @notice LXL depositor (`client`) can request direct resolution between selected `counterparty` over `sum`. E.g., staked wager to benefit charity as `counterparty`.
-     * @dev If LXL `token` is wETH, msg.value can be wrapped into wETH in single call. 
      * @param counterparty Other account (`provider`) that can receive award from `resolver`.
      * @param resolver Account that can call `resolve()` to award `sum` between LXL parties.
      * @param token Token address for `sum`.
@@ -457,12 +420,9 @@ contract LexLocker is ReentrancyGuard {
     function requestLockerResolution(address counterparty, address resolver, address token, uint256 sum, string calldata details, bool swiftResolver) external nonReentrant payable returns (uint256) {
         require(msg.sender != resolver && counterparty != resolver, "client/counterparty = resolver");
         
-        if (msg.value > 0) {
-            address weth = wETH;
-            require(token == weth && msg.value == sum, "!ethBalance");
-            (bool success, ) = weth.call{value: msg.value}("");
-            require(success, "!ethCall");
-            IERC20(weth).transfer(address(this), msg.value);
+        if (token == address(0)) {
+            (bool success, ) = address(this).call{value: sum}("");
+            require(success, "!sum");
         } else {
             IERC20(token).safeTransferFrom(msg.sender, address(this), sum);
         }
@@ -538,7 +498,7 @@ contract LexLocker is ReentrancyGuard {
     function release(uint256 registration) external nonReentrant {
     	Locker storage locker = lockers[registration];
     	
-    	uint256 milestone = locker.currentMilestone-1;
+    	uint256 milestone = locker.currentMilestone - 1;
         uint256 payment = locker.amount[milestone];
         uint256 released = locker.released;
         uint256 sum = locker.sum;
@@ -547,9 +507,15 @@ contract LexLocker is ReentrancyGuard {
 	require(locker.confirmed == 1, "!confirmed");
 	require(locker.locked == 0, "locked");
 	require(released < sum, "released");
+	
+	if (token == address(0)) {
+            (bool success, ) = address(this).call{value: payment}("");
+            require(success, "!sum");
+        } else {
+            IERC20(token).safeTransferFrom(msg.sender, address(this), payment);
+        }
 
-        IERC20(locker.token).safeTransfer(locker.provider, payment);
-        locker.released = released.add(payment);
+        locker.released = released + payment;
         
         if (locker.released < sum) {locker.currentMilestone++;}
         
@@ -573,8 +539,14 @@ contract LexLocker is ReentrancyGuard {
         require(locker.locked == 0, "locked");
         require(released < sum, "released");
         require(locker.termination < block.timestamp, "!terminated");
+	
+	if (token == address(0)) {
+            (bool success, ) = address(this).call{value: sum - released}("");
+            require(success, "!sum");
+        } else {
+            IERC20(token).safeTransferFrom(msg.sender, address(this), sum - released));
+        }
         
-        IERC20(locker.token).safeTransfer(client, sum.sub(released));
         locker.released = sum; 
         
 	emit Withdraw(registration); 
@@ -616,12 +588,12 @@ contract LexLocker is ReentrancyGuard {
         uint256 released = locker.released;
 	uint256 sum = locker.sum;
 	// calculate resolution fee as set on registration:
-	uint256 remainder = sum.sub(released); 
-	uint256 resolutionFee = remainder.div(adr.resolutionRate); 
+	uint256 remainder = sum - released; 
+	uint256 resolutionFee = remainder / adr.resolutionRate; 
 	    
 	require(locker.locked == 1, "!locked"); 
 	require(released < sum, "released");
-	require(clientAward.add(providerAward) == remainder.sub(resolutionFee), "awards != remainder - fee");
+	require(clientAward + providerAward == remainder - resolutionFee, "awards != remainder - fee");
 	    
 	if (adr.swiftResolver) {
 	    require(msg.sender != locker.client && msg.sender != locker.provider, "client/provider = swiftResolver");
@@ -629,10 +601,19 @@ contract LexLocker is ReentrancyGuard {
         } else {
             require(msg.sender == adr.resolver, "!resolver");
         }
-        
-        IERC20(token).safeTransfer(msg.sender, resolutionFee);
-        IERC20(token).safeTransfer(locker.client, clientAward);
-        IERC20(token).safeTransfer(locker.provider, providerAward);
+	
+	if (token == address(0)) {
+            (bool success, ) = msg.sender.call{value: resolutionFee}("");
+            require(success, "!fee");
+	    (bool success, ) = locker.client.call{value: clientAward}("");
+            require(success, "!award");
+	    (bool success, ) = locker.provider.call{value: providerAward}("");
+            require(success, "!award");
+        } else {
+             IERC20(token).safeTransfer(msg.sender, resolutionFee);
+             IERC20(token).safeTransfer(locker.client, clientAward);
+             IERC20(token).safeTransfer(locker.provider, providerAward);
+        }
         
         adr.clientAward = clientAward;
 	adr.providerAward = providerAward;
@@ -714,7 +695,7 @@ contract LexLocker is ReentrancyGuard {
     // *******
     function latestLockerRegistration(address account) external view returns (uint256 latest) { // get latest registered locker per account
         uint256[] memory registered = registrations[account];
-        if (registered.length == 0) {return 0;} else {return registered[registered.length-1];}
+        if (registered.length == 0) {return 0;} else {return registered[registered.length - 1];}
     }
     
     function lockerRegistrations(address account) external view returns (uint256[] memory registered) { // get registered lockers per account
@@ -750,7 +731,7 @@ contract LexLocker is ReentrancyGuard {
      */
     function addMarketTerms(string calldata terms) external nonReentrant onlyManager {
         marketTerms.push(terms);
-        emit AddMarketTerms(marketTerms.length-1, terms);
+        emit AddMarketTerms(marketTerms.length - 1, terms);
     }
     
     /**
@@ -778,7 +759,6 @@ contract LexLocker is ReentrancyGuard {
      * @param _manager Account that governs LXL contract settings.
      * @param _swiftResolverToken Token to mark participants in swift resolution.
      * @param _userRewardToken Token for LXL user rewards.
-     * @param _wETH Standard contract reference to wrap ether. 
      * @param _resolutionRate Rate to determine resolution fee for locker (e.g., 20 = 5% of remainder).
      * @param _swiftResolverTokenBalance Token balance required to perform swift resolution. 
      * @param _userReward Reward amount granted to LXL users in `userRewardToken`.
@@ -788,7 +768,6 @@ contract LexLocker is ReentrancyGuard {
         address _manager, 
         address _swiftResolverToken, 
         address _userRewardToken,
-        address _wETH, 
         uint256 _resolutionRate, 
         uint256 _swiftResolverTokenBalance,
         uint256 _userReward,
@@ -799,12 +778,11 @@ contract LexLocker is ReentrancyGuard {
         manager = _manager;
         swiftResolverToken = _swiftResolverToken;
         userRewardToken = _userRewardToken;
-        wETH = _wETH;
         resolutionRate = _resolutionRate;
         swiftResolverTokenBalance = _swiftResolverTokenBalance;
         userReward = _userReward;
         lockerTerms = _lockerTerms;
 	    
-	emit UpdateLockerSettings(_manager, _swiftResolverToken, _userRewardToken, _wETH, _resolutionRate, _swiftResolverTokenBalance, _userReward, _lockerTerms);
+	emit UpdateLockerSettings(_manager, _swiftResolverToken, _userRewardToken, _resolutionRate, _swiftResolverTokenBalance, _userReward, _lockerTerms);
     }
 }
