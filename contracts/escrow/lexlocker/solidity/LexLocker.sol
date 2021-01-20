@@ -124,9 +124,9 @@ contract LexLocker is ReentrancyGuard {
         uint8 providerProposedResolver;
         uint256 clientAward;
         uint256 providerAward;
-	uint256 resolutionRate;
-	string resolution;
-	bool swiftResolver;
+	    uint256 resolutionRate;
+	    string resolution;
+	    bool swiftResolver;
     }
     
     struct Locker {  
@@ -199,7 +199,7 @@ contract LexLocker is ReentrancyGuard {
             sum = sum.add(amount[i]);
         }
 	
-	if (token == address(0)) {
+	    if (token == address(0)) {
             (bool success, ) = address(this).call{value: sum}("");
             require(success, "!sum");
         } else {
@@ -219,9 +219,9 @@ contract LexLocker is ReentrancyGuard {
             0,
             0,
             0,
-	    resolutionRate, 
-	    "",
-	    swiftResolver);
+	        resolutionRate, 
+	        "",
+	        swiftResolver);
 
         lockers[registration] = Locker( 
             msg.sender, 
@@ -242,7 +242,7 @@ contract LexLocker is ReentrancyGuard {
 
         emit DepositLocker(msg.sender, clientOracle, provider, resolver, token, amount, registration, sum, termination, details, swiftResolver); 
         
-	return registration;
+	    return registration;
     }
     
     /**
@@ -291,9 +291,9 @@ contract LexLocker is ReentrancyGuard {
             0,
             0,
             0,
-	    resolutionRate, 
-	    "",
-	    swiftResolver);
+	        resolutionRate, 
+	        "",
+	        swiftResolver);
 
         lockers[registration] = Locker( 
             msg.sender, 
@@ -314,7 +314,7 @@ contract LexLocker is ReentrancyGuard {
 
         emit DepositLocker(msg.sender, clientOracle, provider, resolver, token, amount, registration, sum, termination, details, swiftResolver); 
         
-	return registration;
+	    return registration;
     }
     
     /**
@@ -360,9 +360,9 @@ contract LexLocker is ReentrancyGuard {
             0,
             0,
             0,
-	    resolutionRate, 
-	    "",
-	    swiftResolver);
+	        resolutionRate, 
+	        "",
+	        swiftResolver);
 
         lockers[registration] = Locker( 
             client, 
@@ -383,7 +383,7 @@ contract LexLocker is ReentrancyGuard {
 
         emit RegisterLocker(client, clientOracle, provider, resolver, token, amount, registration, sum, termination, details, swiftResolver); 
         
-	return registration;
+	    return registration;
     }
     
     /**
@@ -443,9 +443,9 @@ contract LexLocker is ReentrancyGuard {
             0,
             0,
             0,
-	    resolutionRate, 
-	    "",
-	    swiftResolver);
+	        resolutionRate, 
+	        "",
+	        swiftResolver);
      
         lockers[registration] = Locker( 
             msg.sender, 
@@ -466,7 +466,7 @@ contract LexLocker is ReentrancyGuard {
 
         emit RequestLockerResolution(msg.sender, counterparty, resolver, token, registration, sum, details, swiftResolver); 
         
-	return registration;
+	    return registration;
     }
     
     // ***********
@@ -484,7 +484,7 @@ contract LexLocker is ReentrancyGuard {
         require(msg.sender == locker.client, "!client");
         require(clientOracle != adr.resolver, "clientOracle = resolver");
         require(locker.locked == 0, "locked");
-	require(locker.released < locker.sum, "released");
+	    require(locker.released < locker.sum, "released");
         
         locker.clientOracle = clientOracle;
         
@@ -503,23 +503,23 @@ contract LexLocker is ReentrancyGuard {
         uint256 released = locker.released;
         uint256 sum = locker.sum;
 	    
-	require(msg.sender == locker.client || msg.sender == locker.clientOracle, "!client/oracle");
-	require(locker.confirmed == 1, "!confirmed");
-	require(locker.locked == 0, "locked");
-	require(released < sum, "released");
+	    require(msg.sender == locker.client || msg.sender == locker.clientOracle, "!client/oracle");
+	    require(locker.confirmed == 1, "!confirmed");
+	    require(locker.locked == 0, "locked");
+	    require(released < sum, "released");
 	
-	if (token == address(0)) {
-            (bool success, ) = address(this).call{value: payment}("");
+	    if (token == address(0)) {
+            (bool success, ) = locker.client.call{value: payment}("");
             require(success, "!sum");
         } else {
-            IERC20(token).safeTransferFrom(msg.sender, address(this), payment);
+            IERC20(token).safeTransferFrom(address(this), locker.client, payment);
         }
 
         locker.released = released + payment;
         
         if (locker.released < sum) {locker.currentMilestone++;}
         
-	emit Release(milestone+1, payment, registration); 
+	    emit Release(milestone+1, payment, registration); 
     }
     
     /**
@@ -540,16 +540,16 @@ contract LexLocker is ReentrancyGuard {
         require(released < sum, "released");
         require(locker.termination < block.timestamp, "!terminated");
 	
-	if (token == address(0)) {
+	    if (token == address(0)) {
             (bool success, ) = address(this).call{value: sum - released}("");
             require(success, "!sum");
         } else {
-            IERC20(token).safeTransferFrom(msg.sender, address(this), sum - released));
+            IERC20(token).safeTransferFrom(msg.sender, address(this), sum - released);
         }
         
         locker.released = sum; 
         
-	emit Withdraw(registration); 
+	    emit Withdraw(registration); 
     }
     
     // **********
@@ -568,9 +568,9 @@ contract LexLocker is ReentrancyGuard {
         require(locker.confirmed == 1, "!confirmed");
         require(locker.released < locker.sum, "released");
 
-	locker.locked = 1; 
+	    locker.locked = 1; 
 	    
-	emit Lock(msg.sender, registration, details);
+	    emit Lock(msg.sender, registration, details);
     }
     
     /**
@@ -586,28 +586,28 @@ contract LexLocker is ReentrancyGuard {
         
         address token = locker.token;
         uint256 released = locker.released;
-	uint256 sum = locker.sum;
-	// calculate resolution fee as set on registration:
-	uint256 remainder = sum - released; 
-	uint256 resolutionFee = remainder / adr.resolutionRate; 
+	    uint256 sum = locker.sum;
+	    // calculate resolution fee as set on registration:
+	    uint256 remainder = sum - released; 
+	    uint256 resolutionFee = remainder / adr.resolutionRate; 
 	    
-	require(locker.locked == 1, "!locked"); 
-	require(released < sum, "released");
-	require(clientAward + providerAward == remainder - resolutionFee, "awards != remainder - fee");
+	    require(locker.locked == 1, "!locked"); 
+	    require(released < sum, "released");
+	    require(clientAward + providerAward == remainder - resolutionFee, "awards != remainder - fee");
 	    
-	if (adr.swiftResolver) {
-	    require(msg.sender != locker.client && msg.sender != locker.provider, "client/provider = swiftResolver");
-	    require(IERC20(swiftResolverToken).balanceOf(msg.sender) >= swiftResolverTokenBalance && swiftResolverRegistrations[msg.sender], "!swiftResolverTokenBalance/registered");
+	    if (adr.swiftResolver) {
+	        require(msg.sender != locker.client && msg.sender != locker.provider, "client/provider = swiftResolver");
+	        require(IERC20(swiftResolverToken).balanceOf(msg.sender) >= swiftResolverTokenBalance && swiftResolverRegistrations[msg.sender], "!swiftResolverTokenBalance/registered");
         } else {
             require(msg.sender == adr.resolver, "!resolver");
         }
 	
-	if (token == address(0)) {
+	    if (token == address(0)) {
             (bool success, ) = msg.sender.call{value: resolutionFee}("");
-            require(success, "!fee");
-	    (bool success, ) = locker.client.call{value: clientAward}("");
             require(success, "!award");
-	    (bool success, ) = locker.provider.call{value: providerAward}("");
+	        (bool success, ) = locker.client.call{value: clientAward}("");
+	        require(success, "!award");
+	        (bool success, ) = locker.provider.call{value: providerAward}("");
             require(success, "!award");
         } else {
              IERC20(token).safeTransfer(msg.sender, resolutionFee);
@@ -616,12 +616,12 @@ contract LexLocker is ReentrancyGuard {
         }
         
         adr.clientAward = clientAward;
-	adr.providerAward = providerAward;
-	adr.resolution = resolution;
-	locker.released = sum; 
-	resolutions.push(resolution);
+	    adr.providerAward = providerAward;
+	    adr.resolution = resolution;
+	    locker.released = sum; 
+	    resolutions.push(resolution);
 	    
-	emit Resolve(msg.sender, clientAward, providerAward, registration, resolutionFee, resolution);
+	    emit Resolve(msg.sender, clientAward, providerAward, registration, resolutionFee, resolution);
     }
     
     /**
@@ -638,17 +638,17 @@ contract LexLocker is ReentrancyGuard {
         require(msg.sender == locker.client, "!client"); 
         require(msg.sender != proposedResolver && locker.clientOracle != proposedResolver && locker.provider != proposedResolver, "client/clientOracle/provider = proposedResolver");
         require(adr.clientProposedResolver == 0, "pending");
-	require(locker.released < locker.sum, "released");
+	    require(locker.released < locker.sum, "released");
         
         if (adr.proposedResolver == proposedResolver) {
             adr.resolver = proposedResolver;
         } 
 
-	adr.proposedResolver = proposedResolver; 
-	adr.clientProposedResolver = 1;
-	adr.providerProposedResolver = 0;
+	    adr.proposedResolver = proposedResolver; 
+	    adr.clientProposedResolver = 1;
+	    adr.providerProposedResolver = 0;
 	    
-	emit ClientProposeResolver(proposedResolver, registration, details);
+	    emit ClientProposeResolver(proposedResolver, registration, details);
     }
     
     /**
@@ -665,17 +665,17 @@ contract LexLocker is ReentrancyGuard {
         require(msg.sender == locker.provider, "!provider"); 
         require(locker.client != proposedResolver && locker.clientOracle != proposedResolver && msg.sender != proposedResolver, "client/clientOracle/provider = proposedResolver");
         require(adr.providerProposedResolver == 0, "pending");
-	require(locker.released < locker.sum, "released");
+	    require(locker.released < locker.sum, "released");
 
-	if (adr.proposedResolver == proposedResolver) {
+	    if (adr.proposedResolver == proposedResolver) {
             adr.resolver = proposedResolver;
         } 
 	    
-	adr.proposedResolver = proposedResolver;
-	adr.clientProposedResolver = 0;
-	adr.providerProposedResolver = 1;
+	    adr.proposedResolver = proposedResolver;
+	    adr.clientProposedResolver = 0;
+	    adr.providerProposedResolver = 1;
 	    
-	emit ProviderProposeResolver(proposedResolver, registration, details);
+	    emit ProviderProposeResolver(proposedResolver, registration, details);
     }
     
     /**
@@ -783,6 +783,6 @@ contract LexLocker is ReentrancyGuard {
         userReward = _userReward;
         lockerTerms = _lockerTerms;
 	    
-	emit UpdateLockerSettings(_manager, _swiftResolverToken, _userRewardToken, _resolutionRate, _swiftResolverTokenBalance, _userReward, _lockerTerms);
+	    emit UpdateLockerSettings(_manager, _swiftResolverToken, _userRewardToken, _resolutionRate, _swiftResolverTokenBalance, _userReward, _lockerTerms);
     }
 }
