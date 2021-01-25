@@ -27,7 +27,7 @@ contract Baal is ReentrancyGuard {
     mapping(address => Member) public members; // mapping member accounts to struct details
     mapping(uint256 => Proposal) public proposals; // mapping proposal number to struct details
     
-    event SubmitProposal(address indexed proposer, address indexed target, uint256 proposal, uint256 value, bytes data, bool membership, bool removal); // emits when member submits proposal 
+    event SubmitProposal(address indexed proposer, address indexed target, uint256 proposal, uint256 value, bytes data, bool membership, bool removal, string details); // emits when member submits proposal 
     event SubmitVote(address indexed member, uint256 proposal, bool approve); // emits when member submits vote on proposal
     event ProcessProposal(uint256 proposal); // emits when proposal is processed and finalized
     event Receive(address indexed sender, uint256 value); // emits when ether (ETH) received
@@ -47,6 +47,7 @@ contract Baal is ReentrancyGuard {
         bool membership; // flags whether proposal involves adding member votes
         bool removal; // flags whether proposal involves removing an account from membership
         bool processed; // flags whether proposal has processed and executed
+        string details; // context for proposal - could be IPFS hash, plaintext, or JSON
     }
     
     /// @dev deploy Baal and create initial array of member accounts with specific vote weights
@@ -68,11 +69,12 @@ contract Baal is ReentrancyGuard {
     /// @param data Raw data sent to `target` account for low-level call 
     /// @param membership Flags whether proposal involves adding member votes
     /// @param removal Flags whether proposal involves removing an account from membership
-    function submitProposal(address target, uint256 value, bytes calldata data, bool membership, bool removal) external nonReentrant returns (uint256 count) {
+    /// @param details Context for proposal - could be IPFS hash, plaintext, or JSON
+    function submitProposal(address target, uint256 value, bytes calldata data, bool membership, bool removal, string calldata details) external nonReentrant returns (uint256 count) {
         proposalCount++;
         uint256 proposal = proposalCount;
-        proposals[proposal] = Proposal(target, value, 0, 0, block.timestamp + votingPeriod, data, membership, removal, false);
-        emit SubmitProposal(msg.sender, target, proposal, value, data, membership, removal);
+        proposals[proposal] = Proposal(target, value, 0, 0, block.timestamp + votingPeriod, data, membership, removal, false, details);
+        emit SubmitProposal(msg.sender, target, proposal, value, data, membership, removal, details);
         return proposal;
     }
     
