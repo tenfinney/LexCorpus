@@ -126,16 +126,16 @@ contract Baal is ReentrancyGuard {
         }
     }
     
-    // @dev Return array list of member accounts in Baal
+    /// @dev Return array list of member accounts in Baal
     function getMembers() external view returns (address[] memory membership) {
         return memberList;
     }
     
-    // @dev Return and confirm whether member voted on a specific proposal
+    /// @dev Return and confirm whether member voted on a specific proposal
     function getMemberVote(address member, uint256 proposal) external view returns (bool approved) {
         return members[member].voted[proposal];
     }
     
-    // @dev fallback to collect received ether into Baal
+    /// @dev fallback to collect received ether into Baal
     receive() external payable {emit Receive(msg.sender, msg.value);}
 }
