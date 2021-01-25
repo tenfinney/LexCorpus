@@ -21,21 +21,21 @@ contract ReentrancyGuard { // call wrapper for reentrancy check - see https://gi
 contract Baal is ReentrancyGuard {
     address[] public memberList; // array of member accounts summoned or added by proposal
     uint256 public proposalCount; // counter for proposals submitted 
-    uint256 public totalVotes; // counter for member votes minted 
+    uint256 public totalSupply; // counter for member votes minted - erc20 compatible
     uint256 public votingPeriod; // period for members to cast votes on proposals in epoch time
+    uint8 public decimals;
+    string public name;
+    string public symbol;
     
-    mapping(address => Member) public members; // mapping member accounts to struct details
+    mapping(address => uint256) public balanceOf; // mapping member accounts to votes
+    mapping(address => mapping(uint256 => bool)) public voted; // mapping proposal number to whether member voted 
     mapping(uint256 => Proposal) public proposals; // mapping proposal number to struct details
     
     event SubmitProposal(address indexed proposer, address indexed target, uint256 proposal, uint256 value, bytes data, bool membership, bool removal, string details); // emits when member submits proposal 
     event SubmitVote(address indexed member, uint256 proposal, bool approve); // emits when member submits vote on proposal
     event ProcessProposal(uint256 proposal); // emits when proposal is processed and finalized
-    event Receive(address indexed sender, uint256 value); // emits when ether (ETH) received
-    
-    struct Member {
-        uint256 votes; // voting weight to cast on a `proposal` by calling `submitVote()`
-        mapping(uint256 => bool) voted; // mapping proposal number to whether member voted 
-    }
+    event Receive(address indexed sender, uint256 value); // emits when ether (ETH) is received
+    event Transfer(address indexed from, address indexed to, uint256 amount); // emits when member votes are minted or burned
     
     struct Proposal {
         address target; // account that receives low-level call `data` and ETH `value` - if `membership`, the account that will receive `value` votes - if `removal`, the account that will lose votes
@@ -54,12 +54,19 @@ contract Baal is ReentrancyGuard {
     /// @param summoners Accounts to add as members
     /// @param votes Voting weight per member
     /// @param _votingPeriod Voting period in seconds for members to cast votes on proposals
-    constructor(address[] memory summoners, uint256[] memory votes, uint256 _votingPeriod) {
+    /// @param _decimals Decimals for erc20 vote accounting - 18 is default for ETH
+    /// @param _name Name for erc20 vote accounting
+    /// @param _symbol Symbol for erc20 vote accounting
+    constructor(address[] memory summoners, uint256[] memory votes, uint256 _votingPeriod, uint8 _decimals, string memory _name, string memory _symbol) {
         for (uint256 i = 0; i < summoners.length; i++) {
-             totalVotes += votes[i]; // total votes incremented by summoning
-             votingPeriod = _votingPeriod; // voting period set in epoch time
-             members[summoners[i]].votes = votes[i]; // vote weights granted to member
-             memberList.push(summoners[i]); // member added to readable array of accounts
+             totalSupply += votes[i]; // total votes incremented by summoning
+             votingPeriod = _votingPeriod; 
+             decimals = _decimals; 
+             name = _name;
+             symbol = _symbol;
+             balanceOf[summoners[i]] = votes[i]; // vote weights granted to member
+             memberList.push(summoners[i]); // update list of member accounts
+             emit Transfer(address(this), summoners[i], votes[i]); // event reflects mint of erc20 votes
         }
     }
     
@@ -82,19 +89,18 @@ contract Baal is ReentrancyGuard {
     /// @param proposal Number of proposal in `proposals` mapping to cast vote on 
     /// @param approve If `true`, member will cast `yesVotes` onto proposal - if `false, `noVotes` will be cast
     function submitVote(uint256 proposal, bool approve) external nonReentrant returns (uint256 count) {
-        Member storage member = members[msg.sender]; 
         Proposal storage prop = proposals[proposal];
         
         require(proposal <= proposalCount, "!exist");
         require(prop.votingEnds >= block.timestamp, "finished");
         require(!prop.processed, "processed");
-        require(member.votes > 0, "!active");
-        require(!member.voted[proposal], "voted");
+        require(balanceOf[msg.sender] != 0, "!active");
+        require(voted[msg.sender][proposal], "voted");
         
-        if (approve) {prop.yesVotes += member.votes;} // cast yes votes
-        else {prop.noVotes += member.votes;} // cast no votes
+        if (approve) {prop.yesVotes += balanceOf[msg.sender];} // cast yes votes
+        else {prop.noVotes += balanceOf[msg.sender];} // cast no votes
         
-        member.voted[proposal] = true; // reflect member voted
+        voted[msg.sender][proposal] = true; // reflect member voted
         
         emit SubmitVote(msg.sender, proposal, approve);
         return proposal;
@@ -115,12 +121,14 @@ contract Baal is ReentrancyGuard {
         
         if (prop.yesVotes > prop.noVotes) { // check if proposal approved by members
             if (prop.membership && !prop.removal) { // check into membership proposal
-                if(members[prop.target].votes < 1) {memberList.push(prop.target);} // update list of member accounts if new
-                totalVotes += prop.value; // add to total member votes
-                members[prop.target].votes += prop.value; // add to member votes
+                if(balanceOf[prop.target] == 0) {memberList.push(prop.target);} // update list of member accounts if new
+                totalSupply += prop.value; // add to total member votes
+                balanceOf[prop.target] += prop.value; // add to member votes
+                emit Transfer(address(this), prop.target, prop.value); // event reflects mint of erc20 votes
             } else if (prop.removal) { // check into removal proposal
-                totalVotes -= members[prop.target].votes; // subtract from total member votes
-                members[prop.target].votes = 0; // reset member votes
+                totalSupply -= balanceOf[prop.target]; // subtract from total member votes
+                emit Transfer(address(this), address(0), balanceOf[prop.target]); // event reflects burn of erc20 votes
+                balanceOf[prop.target] = 0; // reset member votes
             } else { // otherwise, check into low-level call 
                 (bool callSuccess, bytes memory returnData) = prop.target.call{value: prop.value}(prop.data); // execute low-level call
                 return (callSuccess, returnData); // return call success and data
@@ -131,11 +139,6 @@ contract Baal is ReentrancyGuard {
     /// @dev Return array list of member accounts in Baal
     function getMembers() external view returns (address[] memory membership) {
         return memberList;
-    }
-    
-    /// @dev Return and confirm whether member voted on a specific proposal
-    function getMemberVote(address member, uint256 proposal) external view returns (bool approved) {
-        return members[member].voted[proposal];
     }
     
     /// @dev fallback to collect received ether into Baal
