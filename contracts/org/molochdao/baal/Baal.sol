@@ -2,8 +2,8 @@
 pragma solidity 0.8.0;
 
 interface MemberAction {
-    function memberBurn(address member, uint256 amount) external; // vote-weighted member burn - e.g., "ragequit" to claim capital
-    function memberDistribution(address member, uint256 votes) external; // vote-weighted member distribution - e.g., claim dividends
+    function memberBurn(address member, uint256 amount, uint256 total) external; // vote-weighted member burn - e.g., "ragequit" to claim capital
+    function memberDistribution(address member, uint256 votes, uint256 total) external; // vote-weighted member distribution - e.g., claim dividends
     function memberMint(address member, uint256 amount) external; // value-weighted member vote mint - e.g., submit direct tribute for votes
 }
 
@@ -145,12 +145,12 @@ contract Baal is ReentrancyGuard {
     
     function memberAction(address target, uint256 amount, bool burn, bool distribution, bool mint) external nonReentrant {
         if (burn) {
-            MemberAction(target).memberBurn(msg.sender, amount);
+            MemberAction(target).memberBurn(msg.sender, amount, totalSupply);
             totalSupply -= amount; // subtract from total member votes
             balanceOf[msg.sender] -= amount; // subtract member votes
             emit Transfer(address(this), address(0), amount); // event reflects burn of erc20 votes
         } else if (distribution) {
-            MemberAction(target).memberDistribution(msg.sender, balanceOf[msg.sender]);
+            MemberAction(target).memberDistribution(msg.sender, balanceOf[msg.sender], totalSupply);
         } else if (mint) {
             MemberAction(target).memberMint(msg.sender, amount);
             totalSupply += amount; // add to total member votes
