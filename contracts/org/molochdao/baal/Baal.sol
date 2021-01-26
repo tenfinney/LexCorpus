@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.0;
 
+interface MemberAction {
+    function memberBurn(address member, uint256 amount) external; // vote-weighted member burn - e.g., "ragequit" to claim capital
+    function memberDistribution(address member, uint256 votes) external; // vote-weighted member distribution - e.g., claim dividends
+    function memberMint(address member, uint256 amount) external; // value-weighted member vote mint - e.g., submit direct tribute for votes
+}
+
 contract ReentrancyGuard { // call wrapper for reentrancy check - see https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/ReentrancyGuard.sol
     uint256 private constant _NOT_ENTERED = 1;
     uint256 private constant _ENTERED = 2;
@@ -20,6 +26,7 @@ contract ReentrancyGuard { // call wrapper for reentrancy check - see https://gi
 
 contract Baal is ReentrancyGuard {
     address[] public memberList; // array of member accounts summoned or added by proposal
+    address[] public contractList; // array of contract approved for member calls 
     uint256 public proposalCount; // counter for proposals submitted 
     uint256 public totalSupply; // counter for member votes minted - erc20 compatible
     uint256 public votingPeriod; // period for members to cast votes on proposals in epoch time
@@ -133,6 +140,22 @@ contract Baal is ReentrancyGuard {
                 (bool callSuccess, bytes memory returnData) = prop.target.call{value: prop.value}(prop.data); // execute low-level call
                 return (callSuccess, returnData); // return call success and data
             }
+        }
+    }
+    
+    function memberAction(address target, uint256 amount, bool burn, bool distribution, bool mint) external {
+        if (burn) {
+            MemberAction(target).memberBurn(msg.sender, amount);
+            totalSupply -= amount; // subtract from total member votes
+            balanceOf[msg.sender] -= amount; // subtract member votes
+            emit Transfer(address(this), address(0), amount); // event reflects burn of erc20 votes
+        } else if (distribution) {
+            MemberAction(target).memberDistribution(msg.sender, balanceOf[msg.sender]);
+        } else if (mint) {
+            MemberAction(target).memberMint(msg.sender, amount);
+            totalSupply += amount; // add to total member votes
+            balanceOf[msg.sender] += amount; // add to member votes
+            emit Transfer(address(this), msg.sender, amount); // event reflects mint of erc20 votes
         }
     }
     
