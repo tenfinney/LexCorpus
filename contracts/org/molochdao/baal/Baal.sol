@@ -143,7 +143,7 @@ contract Baal is ReentrancyGuard {
         }
     }
     
-    function memberAction(address target, uint256 amount, bool burn, bool distribution, bool mint) external {
+    function memberAction(address target, uint256 amount, bool burn, bool distribution, bool mint) external nonReentrant {
         if (burn) {
             MemberAction(target).memberBurn(msg.sender, amount);
             totalSupply -= amount; // subtract from total member votes
