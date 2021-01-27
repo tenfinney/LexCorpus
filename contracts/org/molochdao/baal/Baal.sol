@@ -44,6 +44,7 @@ contract Baal is ReentrancyGuard {
     event Receive(address indexed sender, uint256 value); // emits when ether (ETH) is received
     event Transfer(address indexed from, address indexed to, uint256 amount); // emits when member votes are minted or burned
     
+    // WIP - make flag system for diff. prop types
     struct Proposal {
         address target; // account that receives low-level call `data` and ETH `value` - if `membership`, the account that will receive `value` votes - if `removal`, the account that will lose votes
         uint256 value; // ETH sent from Baal to execute approved proposal low-level call - if `membership`, reflects `votes` to grant member
@@ -51,7 +52,6 @@ contract Baal is ReentrancyGuard {
         uint256 yesVotes; // counter for member yes votes to calculate approval on processing
         uint256 votingEnds; // termination date for proposal in seconds since epoch - derived from votingPeriod
         bytes data; // raw data sent to `target` account for low-level call
-        bool membership; // flags whether proposal involves adding member votes
         bool removal; // flags whether proposal involves removing an account from membership
         bool processed; // flags whether proposal has processed and executed
         string details; // context for proposal - could be IPFS hash, plaintext, or JSON
@@ -143,6 +143,12 @@ contract Baal is ReentrancyGuard {
         }
     }
     
+    /// @dev Execute member action against external contract
+    /// @param target Account to call to trigger component transaction
+    /// @param amount Number of member votes to involve in transaction
+    /// @param burn Confirm whether transaction involves burn of votes
+    /// @param distribution Confirm whether transaction involves distribution based on member vote balance
+    /// @param mint Confirm whether transaction involves mint based on member vote balance
     function memberAction(address target, uint256 amount, bool burn, bool distribution, bool mint) external nonReentrant {
         if (burn) {
             MemberAction(target).memberBurn(msg.sender, amount, totalSupply);
