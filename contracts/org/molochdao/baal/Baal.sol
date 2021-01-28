@@ -91,19 +91,15 @@ contract Baal is ReentrancyGuard {
     /// @param proposal Number of proposal in `proposals` mapping to cast vote on 
     /// @param approve If `true`, member will cast `yesVotes` onto proposal - if `false, `noVotes` will be cast
     function submitVote(uint256 proposal, bool approve) external nonReentrant returns (uint256 count) {
-        Proposal storage prop = proposals[proposal];
-        
+        Proposal storage prop = proposals[proposal];  
         require(proposal <= proposalCount, "!exist");
         require(prop.votingEnds >= block.timestamp, "finished");
         require(!prop.processed, "processed");
         require(balanceOf[msg.sender] > 0, "!active");
         require(voted[msg.sender][proposal], "voted");
-        
         if (approve) {prop.yesVotes += balanceOf[msg.sender];} // cast yes votes
         else {prop.noVotes += balanceOf[msg.sender];} // cast no votes
-        
         voted[msg.sender][proposal] = true; // reflect member voted
-        
         emit SubmitVote(msg.sender, proposal, approve);
         return proposal;
     }
@@ -112,15 +108,11 @@ contract Baal is ReentrancyGuard {
     /// @param proposal Number of proposal in `proposals` mapping to process for execution
     function processProposal(uint256 proposal) external nonReentrant returns (bool success, bytes memory retData) {
         Proposal storage prop = proposals[proposal];
-        
         require(proposal <= proposalCount, "!exist");
         require(prop.votingEnds <= block.timestamp, "!finished");
         require(!prop.processed, "processed");
-        
         prop.processed = true; // reflect proposal processed
-        
         emit ProcessProposal(proposal);
-        
         if (prop.yesVotes > prop.noVotes) { // check if proposal approved by members
             if (prop.membership) { // check into membership proposal
                 if(balanceOf[prop.target] == 0) {memberList.push(prop.target);} // update list of member accounts if new
@@ -144,8 +136,7 @@ contract Baal is ReentrancyGuard {
     /// @param mint Confirm whether transaction involves mint - if `false,` then perform balance-based burn
     function memberAction(address target, uint256 amount, bool mint) external nonReentrant {
         require(balanceOf[msg.sender] > 0, "!active");
-        require(contractList[target], "!listed");
-        
+        require(contractList[target], "!listed");  
         if (mint) {
             MemberAction(target).memberMint(msg.sender, amount);
             totalSupply += amount; // add to total member votes
