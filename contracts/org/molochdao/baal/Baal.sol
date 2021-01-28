@@ -50,7 +50,7 @@ contract Baal is ReentrancyGuard {
         uint256 yesVotes; // counter for member yes votes to calculate approval on processing
         uint256 votingEnds; // termination date for proposal in seconds since epoch - derived from votingPeriod
         bytes data; // raw data sent to `target` account for low-level call
-        bool membership; // flags whether proposal involves adding `value` member (`target`) votes - if `false`, member votes will be removed
+        bool membership; // flags whether proposal involves adding votes `value` to member (`target`) - if `false`, member votes will be removed
         bool processed; // flags whether proposal has been processed and executed
         string details; // context for proposal - could be IPFS hash, plaintext, or JSON
     }
