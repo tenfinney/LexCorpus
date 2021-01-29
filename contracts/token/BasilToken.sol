@@ -2,7 +2,7 @@
 pragma solidity 0.8.0;
 
 contract BasilToken {
-    address owner;
+    address public owner;
     string public name = "BASIL";
     string public symbol = "BSL";
     uint8 public decimals = 18;
