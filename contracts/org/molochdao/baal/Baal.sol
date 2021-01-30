@@ -91,14 +91,13 @@ contract Baal is ReentrancyGuard {
     /// @param proposal Number of proposal in `proposals` mapping to cast vote on 
     /// @param approve If `true`, member will cast `yesVotes` onto proposal - if `false, `noVotes` will be cast
     function submitVote(uint256 proposal, bool approve) external nonReentrant returns (uint256 count) {
-        Proposal storage prop = proposals[proposal];  
         require(proposal <= proposalCount, "!exist");
-        require(prop.votingEnds >= block.timestamp, "finished");
-        require(!prop.processed, "processed");
+        require(proposals[proposal].votingEnds >= block.timestamp, "finished");
+        require(!proposals[proposal].processed, "processed");
         require(balanceOf[msg.sender] > 0, "!active");
-        require(voted[msg.sender][proposal], "voted");
-        if (approve) {prop.yesVotes += balanceOf[msg.sender];} // cast yes votes
-        else {prop.noVotes += balanceOf[msg.sender];} // cast no votes
+        require(!voted[msg.sender][proposal], "voted");
+        if (approve) {proposals[proposal].yesVotes += balanceOf[msg.sender];} // cast yes votes
+        else {proposals[proposal].noVotes += balanceOf[msg.sender];} // cast no votes
         voted[msg.sender][proposal] = true; // reflect member voted
         emit SubmitVote(msg.sender, proposal, approve);
         return proposal;
@@ -107,27 +106,34 @@ contract Baal is ReentrancyGuard {
     /// @dev Process proposal and execute low-level call or membership management - proposal must exist, be unprocessed, and voting period must be finished
     /// @param proposal Number of proposal in `proposals` mapping to process for execution
     function processProposal(uint256 proposal) external nonReentrant returns (bool success, bytes memory retData) {
-        Proposal storage prop = proposals[proposal];
         require(proposal <= proposalCount, "!exist");
-        require(prop.votingEnds <= block.timestamp, "!finished");
-        require(!prop.processed, "processed");
-        prop.processed = true; // reflect proposal processed
-        emit ProcessProposal(proposal);
-        if (prop.yesVotes > prop.noVotes) { // check if proposal approved by members
-            if (prop.membership) { // check into membership proposal
-                if(balanceOf[prop.target] == 0) {memberList.push(prop.target);} // update list of member accounts if new
-                totalSupply += prop.value; // add to total member votes
-                balanceOf[prop.target] += prop.value; // add to member votes
-                emit Transfer(address(this), prop.target, prop.value); // event reflects mint of erc20 votes
-            } else if (prop.data.length > 0) { // alternatively, check into removal proposal
-                totalSupply -= balanceOf[prop.target]; // subtract from total member votes
-                emit Transfer(address(this), address(0), balanceOf[prop.target]); // event reflects burn of erc20 votes
-                balanceOf[prop.target] = 0; // reset member votes
+        require(proposals[proposal].votingEnds <= block.timestamp, "!finished");
+        require(!proposals[proposal].processed, "processed");
+        proposals[proposal].processed = true; // reflect proposal processed
+
+        bool membership = proposals[proposal].membership;
+        
+        if (proposals[proposal].yesVotes > proposals[proposal].noVotes) { // check if proposal approved by members
+            if (membership) { // check into membership proposal
+                address target = proposals[proposal].target;
+                uint256 value = proposals[proposal].value;
+                if(balanceOf[target] == 0) {memberList.push(target);} // update list of member accounts if new
+                totalSupply += value; // add to total member votes
+                balanceOf[target] += value; // add to member votes
+                emit Transfer(address(this), target, value); // event reflects mint of erc20 votes
+            } else if (!membership && proposals[proposal].data.length == 0) { // alternatively, check into removal proposal
+                address target = proposals[proposal].target;
+                uint256 balance = balanceOf[target];
+                totalSupply -= balance; // subtract from total member votes
+                balanceOf[target] = 0; // reset member votes
+                emit Transfer(address(this), address(0), balance); // event reflects burn of erc20 votes
             } else { // otherwise, check into low-level call 
-                (bool callSuccess, bytes memory returnData) = prop.target.call{value: prop.value}(prop.data); // execute low-level call
+                (bool callSuccess, bytes memory returnData) = proposals[proposal].target.call{value: proposals[proposal].value}(proposals[proposal].data); // execute low-level call
                 return (callSuccess, returnData); // return call success and data
             }
         }
+        
+        emit ProcessProposal(proposal);
     }
     
     /// @dev Execute member action against external contract - caller must have votes
