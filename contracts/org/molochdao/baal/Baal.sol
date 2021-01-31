@@ -82,7 +82,9 @@ contract Baal is ReentrancyGuard {
     function submitProposal(address target, uint256 value, bytes calldata data, bool membership, string calldata details) external nonReentrant returns (uint256 count) {
         proposalCount++;
         uint256 proposal = proposalCount;
+        
         proposals[proposal] = Proposal(target, value, 0, 0, block.timestamp + votingPeriod, data, membership, false, details); // push params into proposal struct - start timer
+        
         emit SubmitProposal(msg.sender, target, proposal, value, data, membership, details);
         return proposal;
     }
@@ -96,9 +98,11 @@ contract Baal is ReentrancyGuard {
         require(!proposals[proposal].processed, "processed");
         require(balanceOf[msg.sender] > 0, "!active");
         require(!voted[msg.sender][proposal], "voted");
+        
         if (approve) {proposals[proposal].yesVotes += balanceOf[msg.sender];} // cast yes votes
         else {proposals[proposal].noVotes += balanceOf[msg.sender];} // cast no votes
         voted[msg.sender][proposal] = true; // reflect member voted
+        
         emit SubmitVote(msg.sender, proposal, approve);
         return proposal;
     }
@@ -109,23 +113,27 @@ contract Baal is ReentrancyGuard {
         require(proposal <= proposalCount, "!exist");
         require(proposals[proposal].votingEnds <= block.timestamp, "!finished");
         require(!proposals[proposal].processed, "processed");
-        proposals[proposal].processed = true; // reflect proposal processed
-
+      
         bool membership = proposals[proposal].membership;
         
         if (proposals[proposal].yesVotes > proposals[proposal].noVotes) { // check if proposal approved by members
             if (membership) { // check into membership proposal
                 address target = proposals[proposal].target;
                 uint256 value = proposals[proposal].value;
+                
                 if(balanceOf[target] == 0) {memberList.push(target);} // update list of member accounts if new
+                
                 totalSupply += value; // add to total member votes
                 balanceOf[target] += value; // add to member votes
+                
                 emit Transfer(address(this), target, value); // event reflects mint of erc20 votes
             } else if (!membership && proposals[proposal].data.length == 0) { // alternatively, check into removal proposal
                 address target = proposals[proposal].target;
                 uint256 balance = balanceOf[target];
+                
                 totalSupply -= balance; // subtract from total member votes
                 balanceOf[target] = 0; // reset member votes
+                
                 emit Transfer(address(this), address(0), balance); // event reflects burn of erc20 votes
             } else { // otherwise, check into low-level call 
                 (bool callSuccess, bytes memory returnData) = proposals[proposal].target.call{value: proposals[proposal].value}(proposals[proposal].data); // execute low-level call
@@ -133,6 +141,7 @@ contract Baal is ReentrancyGuard {
             }
         }
         
+        proposals[proposal].processed = true; // reflect proposal processed
         emit ProcessProposal(proposal);
     }
     
