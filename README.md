@@ -1,6 +1,9 @@
 # LexCorpus *[📕](https://medium.com/lexdaoism/enter-lexdao-corpus-contracts-df01d8518019)*
 Contract library for legal engineering: 🤖 📜
 
+"LexDAO is a non-profit association of legal engineering professionals that brings the traditional legal settlement layer to code, and coded agreements to the masses. They believe that everyone deserves access to justice provided in a quick and efficient manner. If legal services were easier to use, verify, and enforce, we could live in a fairer world." *https://legaltechlive.com/episodes/legal-engineering-decentralized-autonomous-organizations-with-lexdao/*
+
+
 LexDAO emphasizes lean contract code for security and legibility. 
 
 ### GETTING STARTED
