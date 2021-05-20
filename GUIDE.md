@@ -38,7 +38,7 @@ Congrats! Now your changes are ready to be checked and merged by LexDAO engineer
 
 ## (3) Test and write contracts on Remix
 
-If you want to make more fulsome edits or write your own projects for LexDAO, it is usually a good idea to have a standard coding environment to check assumptions and see how a contract performs on testnet. For this purpose, LexDAO recommends [Remix](http://remix.ethereum.org/), a browser application for Ethereum smart contract deployment.
+If you want to make more fulsome edits or write your own projects for LexDAO, it is usually a good idea to have a standard coding environment to check assumptions and see how a contract performs on testnet. For this purpose, LexDAO recommends [Remix](http://remix.ethereum.org/), a browser application for developing, deploying and administering smart contracts for Ethereum and similar. It is also used as a learning platform.
 
 ![](https://i.imgur.com/odWz5gp.png)
 
