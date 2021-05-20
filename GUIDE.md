@@ -14,6 +14,8 @@ Simply sign-up and create a profile by following the instructions [here](https:/
 
 ## (2) Make Pull Request
 
+A pull request (sometimes called merge requests), is a review request. You are asking someone to check the changes on a branch before merging into another branch.
+
 Let's say you notice a cool fix for the LexDAO base [`Token`](https://github.com/lexDAO/LexCorpus/blob/master/contracts/token/erc20/Token.sol) contract.
 
 To propose this change, simply click the pencil icon in the top right corner of the contract file:
